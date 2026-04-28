@@ -93,15 +93,17 @@ while (opcao != 0):
         print("--- Busca de Jogador ---")
         if len(jogadores) == 0:
             print("Nenhum jogador cadastrado no sistema.")
-        nickname_escolhido = input("Informe o nickname que deseja buscar: ")
-        encontrado = 0
-        for jogador in jogadores:
-            if jogador.nickname == nickname_escolhido: 
-                jogador.exibir_dados()
-                encontrado = 1
-                break
-        if encontrado == 0:
-            print("Não existe um jogador com esse nickname cadastrado.")
+        else:
+            nickname_escolhido = input("Informe o nickname que deseja buscar: ")
+            encontrado = 0
+            for jogador in jogadores:
+                if jogador.nickname == nickname_escolhido: 
+                    print("Jogador encontrado!")
+                    jogador.exibir_dados()
+                    encontrado = 1
+                    break
+            if encontrado == 0:
+                print("Não existe um jogador com esse nickname cadastrado.")
 
     elif(opcao == 0):
         print("Encerrando o sistema.")
