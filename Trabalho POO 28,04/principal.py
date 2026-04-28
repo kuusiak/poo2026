@@ -14,10 +14,10 @@ CAMPEONATO INTERCLASSE DE E-SPORTS
 6. Buscar jogador por nickname
 0. Sair
 ========================================"""
-print(texto)
 
 opcao = 7
 while (opcao != 0):
+    print(texto)
     opcao = int(input("Escolha uma opção: "))
 
     if(opcao == 1):
