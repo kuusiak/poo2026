@@ -13,29 +13,53 @@ class Player(arcade.Sprite):
     def uptade(self, delta_time):
         self.center_x += self.center_x
         self.center_y += self.center_y
+        
         if (self.change_x > 0):
             self.texture = self.textura_direita
         elif (self.change_x < 0):
             self.texture = self.textura_esquerda
 
+
+        if (self.right > LARGURA):
+            self.change_x = 0
+        elif (self.left < 0):
+             self.change_x = 0
+
+        if (self.top > ALTURA):
+            self.change_y = 0
+        elif (self.bottom < 0):
+            self.change_y = 0
+
 class Moeda(arcade.Sprite):
     def __init__ (self):
         super().__init__("ghost.png", scale=0.7)
-    def uptade(self, delta_time):
-        self.center_x += self.center_x
-        self.center_y += self.center_y
+    def update(self, delta_time):
+        self.center_x += self.change_x
+        self.center_y += self.change_y
+
+        if (self.right > LARGURA):
+            self.change_x = 0
+        elif (self.left < 0):
+             self.change_x = 0
+
+        if (self.top > ALTURA):
+            self.change_y = 0
+        elif (self.bottom < 0):
+            self.change_y = 0
 
 class JanelaJogo(arcade.Window):
     def __init__(self):
         super().__init__(LARGURA, ALTURA, TITULO)
         arcade.set_background_color(arcade.color.BUBBLE_GUM)
         self.movimento = 3
+
         self.jogador = Player()
         self.jogador.center_x = 400
         self.jogador.center_y = 300
         self.jogador.change_x = self.movimento
         self.sprite_jogador = arcade.SpriteList()
         self.sprite_jogador.append(self.jogador)
+
         self.moeda = Moeda()
         self.moeda.center_x = 600
         self.moeda.center_y = 300
