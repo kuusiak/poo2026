@@ -52,7 +52,9 @@ class JanelaJogo(arcade.Window):
     def __init__(self):
         super().__init__(LARGURA, ALTURA, TITULO)
         arcade.set_background_color(arcade.color.ARSENIC)
+        #self.fundo = arcade.load_texture("cenario.png")
         self.movimento = 3
+        self.pontuacao = 0
 
         self.jogador = Player()
         self.jogador.center_x = 0
@@ -80,6 +82,7 @@ class JanelaJogo(arcade.Window):
     
     def on_draw(self):
         self.clear()
+
         self.sprite_jogador.draw()
         self.sprite_moedas.draw()
         arcade.draw_text(f"Moedas Coletadas: {self.pontuacao}", 10, 570, arcade.color.AZURE_MIST, 14)
@@ -90,7 +93,11 @@ class JanelaJogo(arcade.Window):
         moedas_colididas = arcade.check_for_collision_with_list(self.jogador, self.sprite_moedas)
         for moeda in moedas_colididas:
             moeda.remove_from_sprite_lists()
-            self.pontuacao =+ 1
+            
+            if(moeda.change_x != 0):
+                self.pontuacao += 3
+            else:
+                self.pontuacao += 1
         
     def on_key_press(self, key, modifiers):
         if key == arcade.key.ESCAPE:
