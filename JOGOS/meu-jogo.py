@@ -4,7 +4,7 @@ import random
 
 ALTURA = 600
 LARGURA = 800
-TITULO = "Meu Jogo"
+TITULO = "Castlevania Coins"
 
 class Player(arcade.Sprite):
     def __init__(self):
@@ -48,11 +48,40 @@ class Moeda(arcade.Sprite):
         if (self.top > ALTURA) or (self.bottom < 0):
             self.change_y *= -1
 
-class JanelaJogo(arcade.Window):
+class TelaInicial(arcade.View):
     def __init__(self):
-        super().__init__(LARGURA, ALTURA, TITULO)
+        super().__init__()
+        self.fundo = arcade.load_texture("CAPA.png")
+
+    def on_draw(self):
+        self.clear()
+
+        arcade.draw_texture_rect(
+            texture = self.fundo,
+            rect = arcade.XYWH(
+                x = LARGURA / 2,
+                y = ALTURA / 2,
+                width=LARGURA,
+                height=ALTURA
+            )
+        )
+
+        #arcade.draw_text("Jogo - O Coletor de Moedas", LARGURA// 2, 400, arcade.color.WHITE, 18, anchor_x="center")
+        arcade.draw_text("Pressione [F] para Jogar", LARGURA // 2, 80, arcade.color.WHITE, 18, anchor_x="center")
+        arcade.draw_text("Pressione [ESC] para Sair", LARGURA // 2, 40, arcade.color.WHITE, 18, anchor_x="center")
+
+    def on_key_press(self, key, modifiers):
+        if key == arcade.key.F:
+            tela_jogo = TelaJogo()
+            self.window.show_view(tela_jogo)
+        elif key == arcade.key.ESCAPE:
+            arcade.close_window()
+
+class TelaJogo(arcade.View):
+    def __init__(self):
+        super().__init__()
         arcade.set_background_color(arcade.color.ARSENIC)
-        #self.fundo = arcade.load_texture("cenario.png")
+        self.fundo = arcade.load_texture("cenario.png")
         self.movimento = 3
         self.pontuacao = 0
 
@@ -83,6 +112,16 @@ class JanelaJogo(arcade.Window):
     def on_draw(self):
         self.clear()
 
+        arcade.draw_texture_rect(
+            texture = self.fundo,
+            rect = arcade.XYWH(
+                x = LARGURA / 2,
+                y = ALTURA / 2,
+                width=LARGURA,
+                height=ALTURA
+            )
+        )
+
         self.sprite_jogador.draw()
         self.sprite_moedas.draw()
         arcade.draw_text(f"Moedas Coletadas: {self.pontuacao}", 10, 570, arcade.color.AZURE_MIST, 14)
@@ -99,9 +138,11 @@ class JanelaJogo(arcade.Window):
             else:
                 self.pontuacao += 1
         
+
     def on_key_press(self, key, modifiers):
         if key == arcade.key.ESCAPE:
-            self.close()
+            tela_inicial = TelaInicial()
+            self.window.show_view(tela_inicial)
         if key == arcade.key.A or key == arcade.key.LEFT:
             self.jogador.change_x = -self.movimento
         elif key == arcade.key.S or key == arcade.key.DOWN:
@@ -117,8 +158,13 @@ class JanelaJogo(arcade.Window):
         if key == arcade.key.S or key == arcade.key.DOWN or key == arcade.key.W or key == arcade.key.UP:
             self.jogador.change_y = 0
 
+#class TelaVitoria(arcade.view):
+
+
 def main():
-    tela = JanelaJogo()
+    janela = arcade.Window(LARGURA, ALTURA, TITULO)
+    tela_inicial = TelaInicial()
+    janela.show_view(tela_inicial)
     arcade.run()
 
 if __name__ == "__main__":
