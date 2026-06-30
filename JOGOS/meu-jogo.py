@@ -3,14 +3,14 @@ import arcade
 import random
 
 ALTURA = 600
-LARGURA = 800
-TITULO = "Castlevania Coins"
+LARGURA = 1000
+TITULO = "Tangled The Game"
 
 class Player(arcade.Sprite):
     def __init__(self):
-        self.textura_direita = arcade.load_texture("alucard_direita.png")
-        self.textura_esquerda = arcade.load_texture("alucard_esquerda.png")
-        super().__init__("alucard_direita.png", scale=0.25)
+        self.textura_direita = arcade.load_texture("rapunzel_direita.png")
+        self.textura_esquerda = arcade.load_texture("rapunzel_esquerda.png")
+        super().__init__("rapunzel_direita.png", scale=0.23)
     def update(self, delta_time):
         self.center_x += self.change_x
         self.center_y += self.change_y
@@ -37,7 +37,7 @@ class Player(arcade.Sprite):
 
 class Moeda(arcade.Sprite):
     def __init__ (self):
-        super().__init__("ghost.png", scale=0.7)
+        super().__init__("pascal.png", scale=0.2)
     def update(self, delta_time):
         self.center_x += self.change_x
         self.center_y += self.change_y
@@ -48,10 +48,23 @@ class Moeda(arcade.Sprite):
         if (self.top > ALTURA) or (self.bottom < 0):
             self.change_y *= -1
 
+class MoedaEspecial(arcade.Sprite):
+    def __init__(self):
+        super().__init__("pascal_especial.png", scale=0.2)
+
+    def update(self, delta_time):
+        self.center_x += self.change_x
+        self.center_y += self.change_y
+
+        if self.left < 0 or self.right > 800:
+            self.change_x *= -1
+        if self.bottom < 0 or self.top > 600:
+            self.change_y *= -1
+
 class TelaInicial(arcade.View):
     def __init__(self):
         super().__init__()
-        self.fundo = arcade.load_texture("CAPA.png")
+        self.fundo = arcade.load_texture("TelaInicial.png")
 
     def on_draw(self):
         self.clear()
@@ -67,8 +80,8 @@ class TelaInicial(arcade.View):
         )
 
         #arcade.draw_text("Jogo - O Coletor de Moedas", LARGURA// 2, 400, arcade.color.WHITE, 18, anchor_x="center")
-        arcade.draw_text("Pressione [F] para Jogar", LARGURA // 2, 80, arcade.color.WHITE, 18, anchor_x="center")
-        arcade.draw_text("Pressione [ESC] para Sair", LARGURA // 2, 40, arcade.color.WHITE, 18, anchor_x="center")
+        arcade.draw_text("Pressione [F] para Jogar", 750, 160, arcade.color.WHITE, 18, anchor_x="center", )
+        arcade.draw_text("Pressione [ESC] para Sair", 750, 100, arcade.color.WHITE, 18, anchor_x="center")
 
     def on_key_press(self, key, modifiers):
         if key == arcade.key.F:
@@ -81,7 +94,7 @@ class TelaJogo(arcade.View):
     def __init__(self):
         super().__init__()
         arcade.set_background_color(arcade.color.ARSENIC)
-        self.fundo = arcade.load_texture("cenario.png")
+        self.fundo = arcade.load_texture("Torre_de_Rapunzel.png")
         self.movimento = 3
         self.pontuacao = 0
 
@@ -102,7 +115,7 @@ class TelaJogo(arcade.View):
         self.sprite_moedas = arcade.SpriteList()
         self.sprite_moedas.append(self.moeda)
 
-        for i in range(25):
+        for i in range(50):
             self.moeda_simples = Moeda()
             self.moeda_simples.center_x = random.randint(50, LARGURA - 50)
             self.moeda_simples.center_y = random.randint(50, ALTURA - 50)
@@ -127,17 +140,28 @@ class TelaJogo(arcade.View):
         arcade.draw_text(f"Moedas Coletadas: {self.pontuacao}", 10, 570, arcade.color.AZURE_MIST, 14)
 
     def on_update(self, delta_time):
+        # if self.jogo_finalizado:
+        #     return
+
+        #self.tempo += delta_time
+
         self.sprite_jogador.update(delta_time)
         self.sprite_moedas.update(delta_time)
+        #self.sprite_inimigos.update(delta_time)
         moedas_colididas = arcade.check_for_collision_with_list(self.jogador, self.sprite_moedas)
         for moeda in moedas_colididas:
             moeda.remove_from_sprite_lists()
-            
             if(moeda.change_x != 0):
                 self.pontuacao += 3
             else:
                 self.pontuacao += 1
-        
+        #inimigos_atingidos = arcade.check_for_collision_with_list(self.jogador, self.sprite_inimigos)
+        # for inimigo in inimigos_atingidos:
+        #     self.pontuacao -= 1
+        #     inimigo.remove_from_sprite_lists()
+
+        if len(self.sprite_moedas) == 0:
+            self.jogo_finalizado = True
 
     def on_key_press(self, key, modifiers):
         if key == arcade.key.ESCAPE:
@@ -158,8 +182,10 @@ class TelaJogo(arcade.View):
         if key == arcade.key.S or key == arcade.key.DOWN or key == arcade.key.W or key == arcade.key.UP:
             self.jogador.change_y = 0
 
-#class TelaVitoria(arcade.view):
-
+# class TelaVitoria(arcade.view):
+#     def __init__(self):
+#         super().__init__()
+#         self.fundo = arcade.load_texture("TelaFinal.png")
 
 def main():
     janela = arcade.Window(LARGURA, ALTURA, TITULO)
