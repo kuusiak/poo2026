@@ -259,11 +259,6 @@ class TelaJogo(arcade.View):
         elif key == arcade.key.W or key == arcade.key.UP:
             self.jogador.change_y = self.movimento
 
-        elif key == arcade.key.BACKSPACE:
-            self.jogo_finalizado = True
-            tela_final = TelaFinal(self.pontuacao, self.tempo, self.pontuacao_maxima)
-            self.window.show_view(tela_final)
-
     def on_key_release(self, key, modifiers):
         if key == arcade.key.A or key == arcade.key.LEFT or key == arcade.key.D or key == arcade.key.RIGHT:
             self.jogador.change_x = 0
@@ -325,13 +320,16 @@ class TelaTutorial(arcade.View):
 
         arcade.draw_text("COMO JOGAR", LARGURA/2, 450, arcade.color.WHITE, 30, anchor_x="center")
 
-        arcade.draw_text("Use W A S D ou ⬅ ⮕ ⬆ ⬇ para se mover", LARGURA/2, 330, arcade.color.WHITE, 18, anchor_x="center")
-        arcade.draw_text("A Moeda Especial vale (+3 Pontos)", LARGURA/2, 300, arcade.color.WHITE, 18, anchor_x="center")
-        arcade.draw_text("As Moedas valem (+1 Ponto)", LARGURA/2, 270, arcade.color.WHITE, 18, anchor_x="center")
-        arcade.draw_text("Os Inimigos fazem você perder (-1 Ponto)", LARGURA/2, 240, arcade.color.WHITE, 18, anchor_x="center")
-        arcade.draw_text("O Inimigo Especial te persegue e faz você perder (-1 Ponto)", LARGURA/2, 210, arcade.color.WHITE, 18, anchor_x="center")
+        arcade.draw_text("Use W A S D ou ⬅ ⮕ ⬆ ⬇ para se mover", LARGURA/2, 420, arcade.color.WHITE, 18, anchor_x="center")
+        arcade.draw_text("A Moeda Especial vale (+3 Pontos)", LARGURA/2, 390, arcade.color.WHITE, 18, anchor_x="center")
+        arcade.draw_text("As Moedas valem (+1 Ponto)", LARGURA/2, 360, arcade.color.WHITE, 18, anchor_x="center")
+        arcade.draw_text("Os Inimigos fazem você perder (-1 Ponto)", LARGURA/2, 330, arcade.color.WHITE, 18, anchor_x="center")
+        arcade.draw_text("O Inimigo Especial te persegue e faz você perder (-1 Ponto)", LARGURA/2, 300, arcade.color.WHITE, 18, anchor_x="center")
 
-        arcade.draw_text("Pressione [T] ou [ESC] para voltar ao início", LARGURA/2, 110, arcade.color.WHITE, 18, anchor_x="center")
+        arcade.draw_text("OBJETIVOS", LARGURA/2, 220, arcade.color.WHITE, 30, anchor_x="center")
+        arcade.draw_text("Colete todas as moedas para concluir o jogo!", LARGURA/2, 190, arcade.color.WHITE, 18, anchor_x="center")
+
+        arcade.draw_text("Pressione [T] ou [ESC] para voltar ao início", LARGURA/2, 90, arcade.color.WHITE, 18, anchor_x="center")
 
     def on_key_press(self, key, modifiers):
         if key == arcade.key.T or key == arcade.key.ESCAPE: self.window.show_view(TelaInicial())
