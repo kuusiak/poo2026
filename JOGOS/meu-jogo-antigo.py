@@ -4,8 +4,6 @@ import arcade, random
 ALTURA = 600
 LARGURA = 1000
 TITULO = "Tangled The Game"
-GRAVIDADE = 0.5
-FORCA_PULO = 16
 
 class Player(arcade.Sprite):
     def __init__(self):
@@ -15,6 +13,7 @@ class Player(arcade.Sprite):
         
     def update(self, delta_time):
         self.center_x += self.change_x
+        self.center_y += self.change_y
         
         if (self.change_x > 0):
             self.texture = self.textura_direita
@@ -27,6 +26,12 @@ class Player(arcade.Sprite):
         if (self.left < 0):
             self.change_x = 0
             self.left = 0
+        if (self.top > ALTURA):
+            self.change_y = 0
+            self.top = ALTURA
+        if (self.bottom < 0):
+            self.change_y = 0
+            self.bottom = 0
 
 class Moeda(arcade.Sprite):
     valor_moeda = 1
@@ -72,12 +77,6 @@ class InimigoEspecial(arcade.Sprite):
         
         if self.center_y < self.jogador.center_y: self.center_y += self.movimento
         elif self.center_y > self.jogador.center_y: self.center_y -= self.movimento
-
-class Bloco(arcade.Sprite):
-    def __init__(self, x: float, y: float):
-        super().__init__("bloco_feio.png", scale = 1)
-        self.center_x = x
-        self.center_y = y
 
 class TelaInicial(arcade.View):
     def __init__(self):
@@ -139,25 +138,9 @@ class TelaJogo(arcade.View):
         self.sprite_inimigos = arcade.SpriteList()
 
         self.jogador = Player()
-        self.jogador.center_x = 64
-        self.jogador.center_y = 16
+        self.jogador.center_x = 0
+        self.jogador.center_y = 0
         self.sprite_jogador.append(self.jogador)
-
-        self.sprite_blocos = arcade.SpriteList()
-        for x in range(32, LARGURA + 32, 64):
-            chao = Bloco(x = x, y = 30)
-            self.sprite_blocos.append(chao)
-
-        bloco_pos = [(300, 250), (550, 250)]
-        for x, y in bloco_pos:
-            plataforma = Bloco(x, y)
-            self.sprite_blocos.append(plataforma)
-
-        self.engine_fisica = arcade.PhysicsEnginePlatformer(
-            player_sprite = self.jogador,
-            walls = self.sprite_blocos,
-            gravity_constant = GRAVIDADE
-        )
 
         for i in range (self.qtd_moedas_especiais):
             self.especial = MoedaEspecial()
@@ -219,7 +202,6 @@ class TelaJogo(arcade.View):
         self.sprite_moedas.draw()
         self.sprite_inimigoEspecial.draw()
         self.sprite_inimigos.draw()
-        self.sprite_blocos.draw()
         arcade.draw_text(f"Pontos: {self.pontuacao}", 10, 570, arcade.color.AZURE_MIST, 14)
         arcade.draw_text(f"Tempo: {self.tempo:.2f}s", 10, 550, arcade.color.AZURE_MIST, 14)
 
@@ -230,7 +212,6 @@ class TelaJogo(arcade.View):
         if self.jogo_finalizado:
             return
 
-        self.engine_fisica.update()
         self.tempo += delta_time
         self.sprite_jogador.update(delta_time)
         self.sprite_moedas.update(delta_time)
@@ -271,16 +252,17 @@ class TelaJogo(arcade.View):
             self.window.show_view(tela_inicial)
         if key == arcade.key.A or key == arcade.key.LEFT:
             self.jogador.change_x = -self.movimento
+        elif key == arcade.key.S or key == arcade.key.DOWN:
+            self.jogador.change_y = -self.movimento
         elif key == arcade.key.D or key == arcade.key.RIGHT:
             self.jogador.change_x = self.movimento
-        if key == arcade.key.W or key == arcade.key.SPACE or key == arcade.key.UP:
-            if self.engine_fisica.can_jump():
-                self.jogador.change_y = FORCA_PULO
+        elif key == arcade.key.W or key == arcade.key.UP:
+            self.jogador.change_y = self.movimento
 
     def on_key_release(self, key, modifiers):
         if key == arcade.key.A or key == arcade.key.LEFT or key == arcade.key.D or key == arcade.key.RIGHT:
             self.jogador.change_x = 0
-        if key == arcade.key.W or key == arcade.key.SPACE or key == arcade.key.UP:
+        if key == arcade.key.S or key == arcade.key.DOWN or key == arcade.key.W or key == arcade.key.UP:
             self.jogador.change_y = 0
 
 class TelaFinal(arcade.View):
