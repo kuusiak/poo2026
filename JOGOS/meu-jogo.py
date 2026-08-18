@@ -70,9 +70,6 @@ class InimigoEspecial(arcade.Sprite):
         if self.center_x < self.jogador.center_x: self.center_x += self.movimento
         elif self.center_x > self.jogador.center_x: self.center_x -= self.movimento
         
-        if self.center_y < self.jogador.center_y: self.center_y += self.movimento
-        elif self.center_y > self.jogador.center_y: self.center_y -= self.movimento
-
 class Bloco(arcade.Sprite):
     def __init__(self, x: float, y: float):
         super().__init__("bloco_feio.png", scale = 1)
@@ -175,8 +172,14 @@ class TelaJogo(arcade.View):
 
         self.inimigoEspecial = InimigoEspecial(self.jogador)
         self.inimigoEspecial.center_x = 850
-        self.inimigoEspecial.center_y = 200
+        self.inimigoEspecial.center_y = 145
         self.sprite_inimigoEspecial.append(self.inimigoEspecial)
+
+        self.engine_fisica_inimigo = arcade.PhysicsEnginePlatformer(
+            player_sprite = self.inimigoEspecial,
+            walls = self.sprite_blocos,
+            gravity_constant = GRAVIDADE
+        )
         
         self.inimigo = Inimigo()
         self.inimigo.center_x = random.randint(0, LARGURA - 50)
@@ -191,7 +194,7 @@ class TelaJogo(arcade.View):
         while True:
             colisao = False
             inimigo.center_x = random.randint(50, LARGURA - 50)
-            inimigo.center_y = random.randint(50, ALTURA - 50)
+            inimigo.center_y = 145
             for jogador in self.sprite_jogador:
                 distancia = arcade.get_distance_between_sprites(inimigo, jogador)
                 if distancia < distancia_min:

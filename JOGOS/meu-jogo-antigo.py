@@ -2,7 +2,7 @@
 import arcade, random
 
 ALTURA = 600
-LARGURA = 1000
+LARGURA = 800
 TITULO = "Tangled The Game"
 
 class Player(arcade.Sprite):
