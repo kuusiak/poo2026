@@ -1,42 +1,102 @@
-import arcade, random
+from peewee import *
+import arcade, random, datetime
 
 ALTURA = 600
-LARGURA = 1000
+LARGURA = 800
 TITULO = "Castlevania Coins"
 
-ESCALA_JOGADOR = 1
+ESCALA_JOGADOR = 0.5
 MOVIMENTO_JOGADOR = 4
 GRAVIDADE = 0.5
 FORCA_PULO = 16
 
+ARQUIVO_SPRITESHEET = "personagem-spritesheet.png"
+LARGURA_FRAME = 217
+ALTURA_FRAME = 290
+COLUNAS_SPRITESHEET = 10
+TOTAL_FRAMES = 10
+TEMPO_POR_FRAME = 0.1
+
+banco = SqliteDatabase("ranking.db")
+class BaseModel(Model):
+    class Meta:
+        database = banco
+
+class Pontuacao(BaseModel):
+    nome_jogador = CharField()
+    pontos = IntegerField()
+    tempo_partida = FloatField()
+    data_hora = DateTimeField(default=datetime.datetime.now)
+
+    def __str__(self):
+        return f"{self.nome_jogador} - {self.pontos} pts ({self.tempo_partida:.1f}s)"
+
+    def inicializar_banco():
+        banco.connect(reuse_if_open=True)
+        banco.create_tables([Pontuacao])
+
+    def desenhar_texto_central(texto, altura, tamanho=18, cor=arcade.color.WHITE):
+        arcade.draw_text(texto, LARGURA / 2, altura, cor, tamanho, anchor_x="center")
+
 class Player(arcade.Sprite):
+    DIREITA = 1
+    ESQUERDA = -1
+
     def __init__(self):
-        sheet_direita_andar = arcade.load_spritesheet("alucard_andar.png")
-        
-        quadros_direita = sheet_direita_andar.get_texture_grid(
-            size=(184, 175), 
-            columns=9,
-            count=9
+        folha = arcade.load_spritesheet(ARQUIVO_SPRITESHEET)
+        quadros = folha.get_texture_grid(
+            size=(LARGURA_FRAME, ALTURA_FRAME),
+            columns=COLUNAS_SPRITESHEET,
+            count=TOTAL_FRAMES,
         )
 
-        quadros_esquerda = []
+        self.textura_idle_direita = quadros[0]
+        self.textura_pulo_direita = quadros[1]
+        self.texturas_andando_direita = quadros[2:10]
 
-        for frame in quadros_direita:
-            quadros_esquerda.append(frame.flip_left_right())
+        self.textura_idle_esquerda = self.textura_idle_direita.flip_left_right()
+        self.textura_pulo_esquerda = self.textura_pulo_direita.flip_left_right()
+        self.texturas_andando_esquerda = [textura.flip_left_right() for textura in self.texturas_andando_direita]
 
-        super().__init__(quadros_direita[4], scale = ESCALA_JOGADOR)
+        super().__init__(self.textura_idle_direita, scale = ESCALA_JOGADOR)
 
-        # self.textura_parado_direita = quadros_direita[0]
-        # self.textura_parado_esquerda = quadros_esquerda[0]
-
-        self.quadros = {"direita": quadros_direita, "esquerda": quadros_esquerda}
-        self.direcao = "direita"
-        self.quadro_atual = 4
-        self.tempo_animacao = 0.0
-        self.virado_para: str = "DIREITA" 
+        self.virado_para = self.DIREITA
+        self.frame_atual = 0
+        self.tempo_animacao = 0.0 
 
     def update(self, delta_time):
-        self.center_x += self.change_x
+        if self.change_x > 0:
+            self.virado_para = self.DIREITA
+        elif self.change_x < 0:
+            self.virado_para = self.ESQUERDA
+
+        if self.change_y != 0:
+            if self.virado_para == self.DIREITA:
+                self.texture = self.textura_pulo_direita
+            else:
+                self.texture = self.textura_pulo_esquerda
+            return
+
+        if self.change_x == 0:
+            self.frame_atual = 0
+            self.tempo_animacao = 0.0
+
+            if self.virado_para == self.DIREITA:
+                self.texture = self.textura_idle_direita
+            else:
+                self.texture = self.textura_idle_esquerda
+            return
+
+        self.tempo_animacao += delta_time
+
+        if self.tempo_animacao >= TEMPO_POR_FRAME:
+            self.tempo_animacao -= TEMPO_POR_FRAME
+            self.frame_atual = (self.frame_atual + 1) % len(self.texturas_andando_direita)
+
+        if self.virado_para == self.DIREITA:
+            self.texture = self.texturas_andando_direita[self.frame_atual]
+        else:
+            self.texture = self.texturas_andando_esquerda[self.frame_atual]
 
         if (self.right > LARGURA):
             self.change_x = 0
@@ -49,12 +109,12 @@ class Player(arcade.Sprite):
 class Moeda(arcade.Sprite):
     valor_moeda = 1
     def __init__ (self):
-        super().__init__("moeda.png", scale=0.5)
+        super().__init__("moeda.png", scale = 0.45)
 
 class MoedaEspecial(arcade.Sprite):
     valor_moeda = 5
     def __init__(self):
-        super().__init__("moeda.png", scale=0.07)
+        super().__init__("moeda.png", scale = 0.65)
 
     def update(self, delta_time):
         self.center_x += self.change_x
@@ -90,7 +150,7 @@ class InimigoEspecial(arcade.Sprite):
         
 class Bloco(arcade.Sprite):
     def __init__(self, x: float, y: float):
-        super().__init__("plataforma_chao.png", scale = 1)
+        super().__init__("plataforma_chao1.png", scale = 1)
         self.center_x = x
         self.center_y = y
 
@@ -112,10 +172,10 @@ class TelaInicial(arcade.View):
             )
         )
 
-        arcade.draw_text("Pressione [F] para Jogar", 750, 160, arcade.color.WHITE, 18, anchor_x="center")
-        arcade.draw_text("Pressione [T] para ver o Tutorial", 750, 130, arcade.color.WHITE, 18, anchor_x="center")
-        arcade.draw_text("Pressione [S] para Saber Mais", 750, 100, arcade.color.WHITE, 18, anchor_x="center")
-        arcade.draw_text("Pressione [ESC] para Sair", 750, 70, arcade.color.WHITE, 18, anchor_x="center")
+        arcade.draw_text("Pressione [F] para Jogar", 600, 160, arcade.color.WHITE, 18, anchor_x="center")
+        arcade.draw_text("Pressione [T] para ver o Tutorial", 600, 130, arcade.color.WHITE, 18, anchor_x="center")
+        arcade.draw_text("Pressione [S] para Saber Mais", 600, 100, arcade.color.WHITE, 18, anchor_x="center")
+        arcade.draw_text("Pressione [ESC] para Sair", 600, 70, arcade.color.WHITE, 18, anchor_x="center")
 
     def on_key_press(self, key, modifiers):
         if key == arcade.key.F:
@@ -342,7 +402,7 @@ class TelaFinal(arcade.View):
 class TelaTutorial(arcade.View):
     def __init__(self):
         super().__init__()
-        self.fundo = arcade.load_texture("TelaTutorial.png")
+        self.fundo = arcade.load_texture("teste.png")
 
     def on_draw(self):
         self.clear()
