@@ -1,25 +1,42 @@
-#pip install arcade
 import arcade, random
 
 ALTURA = 600
 LARGURA = 1000
-TITULO = "Tangled The Game"
+TITULO = "Castlevania Coins"
+
+ESCALA_JOGADOR = 1
+MOVIMENTO_JOGADOR = 4
 GRAVIDADE = 0.5
 FORCA_PULO = 16
 
 class Player(arcade.Sprite):
     def __init__(self):
-        super().__init__("rapunzel_direita.png", scale=0.17)
-        self.textura_direita = arcade.load_texture("rapunzel_direita.png")
-        self.textura_esquerda = arcade.load_texture("rapunzel_esquerda.png")
+        sheet_direita_andar = arcade.load_spritesheet("alucard_andar.png")
         
+        quadros_direita = sheet_direita_andar.get_texture_grid(
+            size=(184, 175), 
+            columns=9,
+            count=9
+        )
+
+        quadros_esquerda = []
+
+        for frame in quadros_direita:
+            quadros_esquerda.append(frame.flip_left_right())
+
+        super().__init__(quadros_direita[4], scale = ESCALA_JOGADOR)
+
+        # self.textura_parado_direita = quadros_direita[0]
+        # self.textura_parado_esquerda = quadros_esquerda[0]
+
+        self.quadros = {"direita": quadros_direita, "esquerda": quadros_esquerda}
+        self.direcao = "direita"
+        self.quadro_atual = 4
+        self.tempo_animacao = 0.0
+        self.virado_para: str = "DIREITA" 
+
     def update(self, delta_time):
         self.center_x += self.change_x
-        
-        if (self.change_x > 0):
-            self.texture = self.textura_direita
-        elif (self.change_x < 0):
-            self.texture = self.textura_esquerda
 
         if (self.right > LARGURA):
             self.change_x = 0
@@ -28,15 +45,16 @@ class Player(arcade.Sprite):
             self.change_x = 0
             self.left = 0
 
+
 class Moeda(arcade.Sprite):
     valor_moeda = 1
     def __init__ (self):
-        super().__init__("pascal.png", scale=0.2)
+        super().__init__("moeda.png", scale=0.5)
 
 class MoedaEspecial(arcade.Sprite):
     valor_moeda = 5
     def __init__(self):
-        super().__init__("pascal_especial.png", scale=0.07)
+        super().__init__("moeda.png", scale=0.07)
 
     def update(self, delta_time):
         self.center_x += self.change_x
@@ -72,14 +90,14 @@ class InimigoEspecial(arcade.Sprite):
         
 class Bloco(arcade.Sprite):
     def __init__(self, x: float, y: float):
-        super().__init__("bloco_feio.png", scale = 1)
+        super().__init__("plataforma_chao.png", scale = 1)
         self.center_x = x
         self.center_y = y
 
 class TelaInicial(arcade.View):
     def __init__(self):
         super().__init__()
-        self.fundo = arcade.load_texture("TelaInicial.png")
+        self.fundo = arcade.load_texture("3e84ae6d-50ab-4317-86af-5bca58cbfeee.png")
 
     def on_draw(self):
         self.clear()
@@ -115,15 +133,15 @@ class TelaInicial(arcade.View):
 class TelaJogo(arcade.View):
     def __init__(self):
         super().__init__()
-        self.fundo = arcade.load_texture("TelaJogo.png")
+        self.fundo = arcade.load_texture("3e84ae6d-50ab-4317-86af-5bca58cbfeee1.png")
 
         self.jogo_finalizado = False
         self.dano = False
         self.alerta_timer = 0
-        self.movimento = 4
+        self.movimento = MOVIMENTO_JOGADOR
 
-        self.qtd_moedas = 50
-        self.qtd_moedas_especiais = 5
+        self.qtd_moedas = 25
+        self.qtd_moedas_especiais = 1
 
         self.pontuacao_maxima = (self.qtd_moedas * Moeda.valor_moeda) + (self.qtd_moedas_especiais * MoedaEspecial.valor_moeda)
 
@@ -137,7 +155,7 @@ class TelaJogo(arcade.View):
 
         self.jogador = Player()
         self.jogador.center_x = 64
-        self.jogador.center_y = 16
+        self.jogador.center_y = 300
         self.sprite_jogador.append(self.jogador)
 
         self.sprite_blocos = arcade.SpriteList()
@@ -145,7 +163,7 @@ class TelaJogo(arcade.View):
             chao = Bloco(x = x, y = 30)
             self.sprite_blocos.append(chao)
 
-        bloco_pos = [(300, 250), (550, 250)]
+        bloco_pos = [(250, 250), (750, 250)]
         for x, y in bloco_pos:
             plataforma = Bloco(x, y)
             self.sprite_blocos.append(plataforma)
