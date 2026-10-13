@@ -317,7 +317,7 @@ class TelaJogo(arcade.View):
             self.sprite_moedas.append(self.moeda_simples)
 
         self.inimigoEspecial = InimigoEspecial(self.jogador)
-        self.inimigoEspecial.center_x = 850
+        self.inimigoEspecial.center_x = 750
         self.inimigoEspecial.center_y = 90
         self.sprite_inimigoEspecial.append(self.inimigoEspecial)
 
@@ -536,9 +536,6 @@ class TelaFinal(arcade.View):
         else:
             arcade.draw_text("PARABÉNS! JOGO CONCLUÍDO", LARGURA / 2, 470, COLOR_TEXT, 22, anchor_x="center")
         arcade.draw_text(f"Pontuação: {self.pontos}/{PONTUACAO_MAXIMA}  |  Tempo: {self.tempo:.1f}s", LARGURA / 2, 410, COLOR_TEXT, 18, anchor_x="center")
-        arcade.draw_text("[R] Ranking", LARGURA / 2, 115, COLOR_TEXT, 18, anchor_x="center")
-        arcade.draw_text("[ESPAÇO] Jogar Novamente", LARGURA / 2, 65, COLOR_TEXT, 18, anchor_x="center")
-        arcade.draw_text("[ESC] Sair", LARGURA / 2, 35, COLOR_TEXT, 18, anchor_x="center")
 
         if not self.salvo:
             arcade.draw_text("NOME DO JOGADOR:", LARGURA / 2, 300, COLOR_TEXT, 18, anchor_x="center")
@@ -547,6 +544,9 @@ class TelaFinal(arcade.View):
             arcade.draw_text(self.mensagem, LARGURA / 2, 205, COLOR_TEXT, 18, anchor_x="center")
         else:
             arcade.draw_text("Pontuação salva no ranking!", LARGURA / 2, 285, arcade.color.GREEN_YELLOW, 18, anchor_x="center")
+            arcade.draw_text("[R] Ranking", LARGURA / 2, 95, COLOR_TEXT, 18, anchor_x="center")
+            arcade.draw_text("[ESPAÇO] Jogar Novamente", LARGURA / 2, 65, COLOR_TEXT, 18, anchor_x="center")
+            arcade.draw_text("[ESC] Sair", LARGURA / 2, 35, COLOR_TEXT, 18, anchor_x="center")
 
     def on_text(self, text):
         if self.salvo:
@@ -685,10 +685,10 @@ class TelaRanking(arcade.View):
 
         arcade.draw_text("TOP 10 - RANKING", LARGURA / 2, 535, COLOR_TEXT, 35, anchor_x="center")
 
-        arcade.draw_text("Pos.", 100, 485, COLOR_TEXT_RANKING, 15)
-        arcade.draw_text("Jogador", 170, 485, COLOR_TEXT_RANKING, 15)
-        arcade.draw_text("Pontos", 470, 485, COLOR_TEXT_RANKING, 15)
-        arcade.draw_text("Tempo", 590, 485, COLOR_TEXT_RANKING, 15)
+        arcade.draw_text("Pos.", 100, 485, COLOR_TEXT, 15)
+        arcade.draw_text("Jogador", 170, 485, COLOR_TEXT, 15)
+        arcade.draw_text("Pontos", 470, 485, COLOR_TEXT, 15)
+        arcade.draw_text("Tempo", 590, 485, COLOR_TEXT, 15)
 
         if not self.melhores:
             arcade.draw_text("Ainda não há pontuações registradas.", LARGURA / 2, ALTURA / 2, COLOR_TEXT_RANKING, 18, anchor_x="center")
@@ -701,7 +701,7 @@ class TelaRanking(arcade.View):
                 arcade.draw_text(
                     registro.nome_jogador, 170, y, COLOR_TEXT_RANKING, 15,)
                 arcade.draw_text(
-                    str(registro.pontos), 485, y, COLOR_TEXT, 15,)
+                    str(registro.pontos), 485, y, COLOR_TEXT_RANKING, 15,)
                 arcade.draw_text(
                     f"{registro.tempo_partida:.1f}s", 590, y, COLOR_TEXT_RANKING, 15,)
 
