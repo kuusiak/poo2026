@@ -1,5 +1,5 @@
 from peewee import *
-import arcade, random, datetime
+import arcade, random, datetime, os, math
 
 ALTURA = 600
 LARGURA = 800
@@ -38,6 +38,47 @@ TEMPO_INVENCIVEL = 1.5
 TEMPO_FLASH = 0.3
 TEMPO_TREMOR = 0.35
 INTENSIDADE_TREMOR = 8
+
+
+VIDA_MAXIMA = 5
+VIDA_CURA = 1
+
+DASH_VELOCIDADE = 14
+DASH_DURACAO = 0.2
+DASH_RECARGA = 1.0
+
+TEMPO_CONGELAMENTO = 4.0
+TEMPO_PISCAR_DESCONGELAR = 1.5
+COR_CONGELADO = (140, 200, 255, 255)
+TEMPO_VELOCIDADE = 5.0
+MULTIPLICADOR_VELOCIDADE = 1.6
+
+ITEM_SPAWN_MIN = 6.0
+ITEM_SPAWN_MAX = 12.0
+# Tamanho da imagem do item na tela (a imagem tem margem em volta, por isso a garrafa em si fica com ~80% disso)
+TAMANHO_ITEM = 75
+TAMANHO_ITEM_PROVISORIO = 28
+
+ARQUIVO_ITEM_CURA = "item_cura.png"
+ARQUIVO_ITEM_CONGELAR = "item_congelar.png"
+ARQUIVO_ITEM_VELOCIDADE = "item_velocidade.png"
+ARQUIVO_CORACAO = "coracao.png"
+LARGURA_CORACAO = 32    # largura de cada coração da vida na tela (a altura segue a proporção da imagem)
+ESPACO_CORACAO = 36     # distância de um coração para o próximo
+
+ITEM_TEMPO_VIDA = 8.0
+
+ITEM_MAX_SIMULTANEOS = 2
+
+VELOCIDADE_INIMIGO_PERSEGUIDOR = 2.0
+VELOCIDADE_INIMIGO_ALEATORIO = 1.3
+TEMPO_MIN_DIRECAO = 0.6
+TEMPO_MAX_DIRECAO = 2.0
+
+MAX_TENTATIVAS_POSICAO = 300
+
+HUD_LARGURA = 190
+HUD_ALTURA_MIN = 430
 
 banco = SqliteDatabase("ranking.db")
 class BaseModel(Model):
@@ -83,8 +124,46 @@ class Player(arcade.Sprite):
         super().__init__(self.textura_idle_direita, scale = ESCALA_JOGADOR)
 
         self.virado_para = self.DIREITA
+        self.vida = VIDA_MAXIMA
+        self.mult_velocidade = 1.0
+        self.dash_timer = 0.0
+        self.dash_recarga = 0.0
+        self.direcao_dash = self.DIREITA
         self.frame_atual = 0
         self.tempo_animacao = 0.0 
+
+    def receber_dano(self, quantidade=1):
+        self.vida = max(0, self.vida - quantidade)
+
+    def curar(self, quantidade=1):
+        self.vida = min(VIDA_MAXIMA, self.vida + quantidade)
+
+    def morreu(self):
+        return self.vida <= 0
+
+    def dashando(self):
+        return self.dash_timer > 0
+
+    def iniciar_dash(self):
+        # Só dispara se não estiver no meio de um dash e a recarga já tiver acabado
+        if self.dash_timer > 0 or self.dash_recarga > 0:
+            return False
+
+        self.dash_timer = DASH_DURACAO
+        self.dash_recarga = DASH_RECARGA
+        self.direcao_dash = self.virado_para
+        return True
+
+    def atualizar_timers(self, delta_time):
+        self.dash_timer = max(0.0, self.dash_timer - delta_time)
+        self.dash_recarga = max(0.0, self.dash_recarga - delta_time)
+
+    def mover(self, direcao):
+        # direcao: -1 (esquerda), 0 (parado) ou 1 (direita). O dash tem prioridade sobre o andar.
+        if self.dashando():
+            self.change_x = self.direcao_dash * DASH_VELOCIDADE
+        else:
+            self.change_x = direcao * MOVIMENTO_JOGADOR * self.mult_velocidade
 
     def update(self, delta_time):
         if self.right > LARGURA:
@@ -155,28 +234,97 @@ class MoedaEspecial(arcade.Sprite):
             self.change_y *= -1
 
 class Inimigo(arcade.Sprite):
-    def __init__(self):
-            super().__init__("paintress.png", scale=0.75)
-    
-    def update(self, delta_time):
-        self.center_x += self.change_x
-        self.center_y += self.change_y
+    # Inimigo voador: voa em linha reta atrás do jogador, mais devagar que ele para dar para fugir
+    def __init__(self, jogador):
+        super().__init__("paintress.png", scale=0.75)
+        self.jogador = jogador
 
-        if self.left < 0 or self.right > LARGURA:
-            self.change_x *= -1
-        if self.bottom < 0 or self.top > ALTURA:
-            self.change_y *= -1
+    def update(self, delta_time):
+        dx = self.jogador.center_x - self.center_x
+        dy = self.jogador.center_y - self.center_y
+        distancia = math.hypot(dx, dy)
+
+        if distancia > 0:
+            passo = min(VELOCIDADE_INIMIGO_PERSEGUIDOR, distancia)
+            self.center_x += dx / distancia * passo
+            self.center_y += dy / distancia * passo
 
 class InimigoEspecial(arcade.Sprite):
-    def __init__(self, jogador):
+    # Inimigo do chão: anda sem rumo, trocando de direção em intervalos aleatórios, sem nunca parar
+    def __init__(self):
         super().__init__("dualliste.png", scale=0.1)
-        self.jogador = jogador
-        self.movimento = 1.65
+        self.movimento = VELOCIDADE_INIMIGO_ALEATORIO
+        self.direcao = random.choice([-1, 1])
+        self.tempo_direcao = random.uniform(TEMPO_MIN_DIRECAO, TEMPO_MAX_DIRECAO)
 
     def update(self, delta_time):
-        if self.center_x < self.jogador.center_x: self.center_x += self.movimento
-        elif self.center_x > self.jogador.center_x: self.center_x -= self.movimento
-        
+        self.tempo_direcao -= delta_time
+        if self.tempo_direcao <= 0:
+            self.direcao = random.choice([-1, 1])
+            self.tempo_direcao = random.uniform(TEMPO_MIN_DIRECAO, TEMPO_MAX_DIRECAO)
+
+        self.center_x += self.direcao * self.movimento
+
+        # Nas bordas da tela ele volta para o outro lado
+        if self.left < 0:
+            self.left = 0
+            self.direcao = 1
+        elif self.right > LARGURA:
+            self.right = LARGURA
+            self.direcao = -1
+
+def textura_item(arquivo, cor):
+    # Usa o sprite do arquivo se ele existir; senão desenha um círculo provisório
+    if os.path.exists(arquivo):
+        return arcade.load_texture(arquivo)
+    return arcade.make_circle_texture(TAMANHO_ITEM_PROVISORIO, cor)
+
+class Item(arcade.Sprite):
+    arquivo = ""
+    cor_provisoria = arcade.color.WHITE
+
+    def __init__(self):
+        textura = textura_item(self.arquivo, self.cor_provisoria)
+        # A escala é calculada para o item ocupar sempre TAMANHO_ITEM px na tela,
+        # não importa o tamanho do arquivo de imagem
+        escala = TAMANHO_ITEM / max(textura.width, textura.height)
+        super().__init__(textura, scale = escala)
+        self.tempo_restante = ITEM_TEMPO_VIDA
+
+    def update(self, delta_time):
+        # O item some sozinho se ninguém pegar e pisca nos últimos 2 segundos
+        self.tempo_restante -= delta_time
+        if self.tempo_restante <= 0:
+            self.remove_from_sprite_lists()
+            return
+
+        if self.tempo_restante < 2.0:
+            self.alpha = 80 if int(self.tempo_restante * 6) % 2 == 0 else 255
+
+    def aplicar(self, tela):
+        raise NotImplementedError
+
+class ItemCura(Item):
+    arquivo = ARQUIVO_ITEM_CURA
+    cor_provisoria = arcade.color.LIME_GREEN
+
+    def aplicar(self, tela):
+        tela.jogador.curar(VIDA_CURA)
+
+class MoedaCongelante(Item):
+    arquivo = ARQUIVO_ITEM_CONGELAR
+    cor_provisoria = arcade.color.LIGHT_SKY_BLUE
+
+    def aplicar(self, tela):
+        tela.congelar_inimigos(TEMPO_CONGELAMENTO)
+
+class ItemVelocidade(Item):
+    arquivo = ARQUIVO_ITEM_VELOCIDADE
+    cor_provisoria = arcade.color.ORANGE
+
+    def aplicar(self, tela):
+        tela.ativar_velocidade(TEMPO_VELOCIDADE)
+
 class Bloco(arcade.Sprite):
     def __init__(self, x: float, y: float):
         super().__init__("plataforma.png", scale = 0.15)
@@ -259,6 +407,8 @@ class TelaJogo(arcade.View):
     def __init__(self):
         super().__init__()
         self.fundo = arcade.load_texture("TelaJogo.png")
+        # Sprite do coração da vida (se o arquivo não existir, a HUD usa círculos)
+        self.textura_coracao = arcade.load_texture(ARQUIVO_CORACAO) if os.path.exists(ARQUIVO_CORACAO) else None
 
         self.jogo_finalizado = False
         self.dano = False
@@ -267,6 +417,10 @@ class TelaJogo(arcade.View):
         self.tempo_flash = 0.0
         self.tempo_tremor = 0.0
         self.camera = arcade.Camera2D()
+        self.teclas_pressionadas = set()
+        self.congelado_timer = 0.0
+        self.velocidade_timer = 0.0
+        self.spawn_item_timer = random.uniform(ITEM_SPAWN_MIN, ITEM_SPAWN_MAX)
         self.movimento = MOVIMENTO_JOGADOR
 
         self.qtd_moedas = QTD_MOEDAS
@@ -282,6 +436,7 @@ class TelaJogo(arcade.View):
         self.sprite_inimigoEspecial = arcade.SpriteList()
         self.sprite_inimigos = arcade.SpriteList()
         self.sprite_efeitos = arcade.SpriteList()
+        self.sprite_itens = arcade.SpriteList()
 
         self.jogador = Player()
         self.jogador.center_x = 32
@@ -316,7 +471,7 @@ class TelaJogo(arcade.View):
             self.posicionar_moedas(self.moeda_simples)
             self.sprite_moedas.append(self.moeda_simples)
 
-        self.inimigoEspecial = InimigoEspecial(self.jogador)
+        self.inimigoEspecial = InimigoEspecial()
         self.inimigoEspecial.center_x = 750
         self.inimigoEspecial.center_y = 90
         self.sprite_inimigoEspecial.append(self.inimigoEspecial)
@@ -327,11 +482,8 @@ class TelaJogo(arcade.View):
             gravity_constant = GRAVIDADE
         )
         
-        self.inimigo = Inimigo()
-        self.inimigo.center_x = random.randint(0, LARGURA - 50)
-        self.inimigo.center_y = random.randint(50, ALTURA - 50)
-        self.inimigo.change_x = self.movimento - 0.7
-        self.inimigo.change_y = self.movimento - 0.7
+        self.inimigo = Inimigo(self.jogador)
+        self.respawn(self.inimigo)
         self.sprite_inimigos.append(self.inimigo)
 
 
@@ -344,9 +496,14 @@ class TelaJogo(arcade.View):
                 return False
         return True
 
+    def na_area_da_hud(self, sprite):
+        # Canto superior esquerdo, onde ficam os textos da HUD: uma moeda ali ficaria escondida atrás das letras
+        return sprite.left < HUD_LARGURA and sprite.top > HUD_ALTURA_MIN
+
     def posicionar_moedas(self, moeda):
         distancia_moeda = 50
-        while True:
+        # Limite de tentativas para o jogo nunca ficar preso procurando uma posição livre
+        for tentativa in range(MAX_TENTATIVAS_POSICAO):
             colisao = False
 
             moeda.center_x = random.randint(50, LARGURA - 50)
@@ -360,16 +517,18 @@ class TelaJogo(arcade.View):
             if not colisao:
                 if not self.distancia_blocos(moeda):
                     colisao = True
+            if not colisao and self.na_area_da_hud(moeda):
+                colisao = True
                     
             if not colisao:
                 break
 
     def respawn (self, inimigo):
         distancia_min = 300
-        while True:
+        for tentativa in range(MAX_TENTATIVAS_POSICAO):
             colisao = False
             inimigo.center_x = random.randint(50, LARGURA - 50)
-            inimigo.center_y = 90
+            inimigo.center_y = random.randint(50, ALTURA - 50)
             for jogador in self.sprite_jogador:
                 distancia = arcade.get_distance_between_sprites(inimigo, jogador)
                 if distancia < distancia_min:
@@ -380,6 +539,71 @@ class TelaJogo(arcade.View):
                 break
 
     
+    def atualizar_movimento(self, delta_time):
+        # A direção vem das teclas que estão seguradas, assim o dash e o boost de
+        # velocidade não se perdem quando uma tecla é solta ou apertada no meio deles
+        direcao = 0
+        if arcade.key.D in self.teclas_pressionadas or arcade.key.RIGHT in self.teclas_pressionadas:
+            direcao += 1
+        if arcade.key.A in self.teclas_pressionadas or arcade.key.LEFT in self.teclas_pressionadas:
+            direcao -= 1
+
+        self.jogador.atualizar_timers(delta_time)
+        self.jogador.mover(direcao)
+
+    def congelar_inimigos(self, duracao):
+        self.congelado_timer = duracao
+        self.pintar_inimigos(COR_CONGELADO)
+
+    def pintar_inimigos(self, cor):
+        # Deixa os inimigos azulados enquanto estão congelados
+        for inimigo in list(self.sprite_inimigos) + list(self.sprite_inimigoEspecial):
+            inimigo.color = cor
+
+    def ativar_velocidade(self, duracao):
+        self.velocidade_timer = duracao
+
+    def gerar_item(self):
+        if len(self.sprite_itens) >= ITEM_MAX_SIMULTANEOS:
+            return
+
+        tipos = [MoedaCongelante, ItemVelocidade]
+        if self.jogador.vida < VIDA_MAXIMA:
+            tipos.append(ItemCura)
+
+        item = random.choice(tipos)()
+        self.posicionar_moedas(item)
+        self.sprite_itens.append(item)
+
+    def desenhar_vida(self):
+        # Um coração por ponto de vida: colorido se a vida ainda existe, escuro e transparente se já foi perdida
+        for i in range(VIDA_MAXIMA):
+            tem_vida = i < self.jogador.vida
+            if self.textura_coracao is not None:
+                x = 10 + LARGURA_CORACAO / 2 + i * ESPACO_CORACAO
+                altura = LARGURA_CORACAO * self.textura_coracao.height / self.textura_coracao.width
+                area = arcade.XYWH(x, 582, LARGURA_CORACAO, altura)
+                if tem_vida:
+                    arcade.draw_texture_rect(self.textura_coracao, area)
+                else:
+                    arcade.draw_texture_rect(self.textura_coracao, area, color=arcade.types.Color(70, 70, 70, 255), alpha=170)
+            else:
+                # Sem o arquivo do coração: círculos, como antes
+                x = 22 + i * 26
+                if tem_vida:
+                    arcade.draw_circle_filled(x, 583, 10, arcade.color.RED)
+                else:
+                    arcade.draw_circle_outline(x, 583, 10, arcade.color.DARK_RED, 2)
+
+    def desenhar_status(self):
+        # Mostra o tempo restante dos efeitos temporários (o dash não aparece na HUD)
+        y = 505
+        if self.velocidade_timer > 0:
+            arcade.draw_text(f"Velocidade: {self.velocidade_timer:.1f}s", 10, y, arcade.color.ORANGE, 14)
+            y -= 20
+        if self.congelado_timer > 0:
+            arcade.draw_text(f"Congelados: {self.congelado_timer:.1f}s", 10, y, arcade.color.LIGHT_SKY_BLUE, 14)
+
     def on_draw(self):
         self.clear()
 
@@ -396,6 +620,7 @@ class TelaJogo(arcade.View):
 
         self.sprite_jogador.draw()
         self.sprite_moedas.draw()
+        self.sprite_itens.draw()
         self.sprite_inimigoEspecial.draw()
         self.sprite_inimigos.draw()
         self.sprite_blocos.draw()
@@ -410,41 +635,75 @@ class TelaJogo(arcade.View):
                 (255, 0, 0, alpha)
             )
 
-        arcade.draw_text(f"Pontos: {self.pontuacao}", 10, 570, COLOR_TEXT, 14)
-        arcade.draw_text(f"Tempo: {self.tempo:.2f}s", 10, 550, COLOR_TEXT, 14)
+        self.desenhar_vida()
+        arcade.draw_text(f"Pontos: {self.pontuacao}", 10, 550, COLOR_TEXT, 14)
+        arcade.draw_text(f"Tempo: {self.tempo:.2f}s", 10, 530, COLOR_TEXT, 14)
+        self.desenhar_status()
 
     def on_update(self, delta_time):
         if self.jogo_finalizado:
             return
 
+        self.atualizar_movimento(delta_time)
         self.engine_fisica.update()
         self.tempo += delta_time
         self.sprite_jogador.update(delta_time)
         self.sprite_moedas.update(delta_time)
-        self.sprite_inimigoEspecial.update(delta_time)
-        self.sprite_inimigos.update(delta_time)
+
+        self.velocidade_timer = max(0.0, self.velocidade_timer - delta_time)
+        if self.velocidade_timer > 0:
+            self.jogador.mult_velocidade = MULTIPLICADOR_VELOCIDADE
+        else:
+            self.jogador.mult_velocidade = 1.0
+
+        # Inimigos congelados ficam parados até o tempo acabar
+        if self.congelado_timer > 0:
+            self.congelado_timer = max(0.0, self.congelado_timer - delta_time)
+            if self.congelado_timer == 0:
+                self.pintar_inimigos(arcade.color.WHITE)
+            elif self.congelado_timer < TEMPO_PISCAR_DESCONGELAR:
+                # Quase descongelando: pisca entre azul e a cor normal, ainda parado, antes de voltar a se mexer
+                if int(self.congelado_timer * 8) % 2 == 0:
+                    self.pintar_inimigos(COR_CONGELADO)
+                else:
+                    self.pintar_inimigos(arcade.color.WHITE)
+        else:
+            self.sprite_inimigoEspecial.update(delta_time)
+            self.sprite_inimigos.update(delta_time)
+
         self.sprite_efeitos.update(delta_time)
+        self.sprite_itens.update(delta_time)
+
+        self.spawn_item_timer -= delta_time
+        if self.spawn_item_timer <= 0:
+            self.gerar_item()
+            self.spawn_item_timer = random.uniform(ITEM_SPAWN_MIN, ITEM_SPAWN_MAX)
 
         moedas_colididas = arcade.check_for_collision_with_list(self.jogador, self.sprite_moedas)
         for moeda in moedas_colididas:
             moeda.remove_from_sprite_lists()
             self.pontuacao += moeda.valor
 
+        itens_colididos = arcade.check_for_collision_with_list(self.jogador, self.sprite_itens)
+        for item in itens_colididos:
+            item.aplicar(self)
+            item.remove_from_sprite_lists()
+
         self.invencivel_timer = max(0.0, self.invencivel_timer - delta_time)
         self.tempo_flash = max(0.0, self.tempo_flash - delta_time)
         self.tempo_tremor = max(0.0, self.tempo_tremor - delta_time)
 
-        if self.invencivel_timer == 0:
+        if self.invencivel_timer == 0 and self.congelado_timer == 0:
             especiais_colididos = arcade.check_for_collision_with_list(self.jogador, self.sprite_inimigoEspecial)
             if especiais_colididos:
                 self.pontuacao -= 1
                 self.alertaDano(especiais_colididos[0])
-                self.respawn(self.inimigoEspecial)
             else:
                 inimigos_colididos = arcade.check_for_collision_with_list(self.jogador, self.sprite_inimigos)
                 if inimigos_colididos:
                     self.pontuacao -= 1
                     self.alertaDano(inimigos_colididos[0])
+                    self.respawn(self.inimigo)
 
         if self.dano:
             self.alerta_timer -= delta_time
@@ -468,6 +727,12 @@ class TelaJogo(arcade.View):
         else:
             self.camera.position = (LARGURA / 2, ALTURA / 2)
 
+        if self.jogador.morreu():
+            self.jogo_finalizado = True
+            tela_final = TelaFinal(self.pontuacao, self.tempo, self.pontuacao_maxima, venceu=False)
+            self.window.show_view(tela_final)
+            return
+
         if len(self.sprite_moedas) == 0:
             self.jogo_finalizado = True
             tela_final = TelaFinal(self.pontuacao, self.tempo, self.pontuacao_maxima)
@@ -479,6 +744,7 @@ class TelaJogo(arcade.View):
         self.invencivel_timer = TEMPO_INVENCIVEL
         self.tempo_flash = TEMPO_FLASH
         self.tempo_tremor = TEMPO_TREMOR
+        self.jogador.receber_dano(1)
 
         x = (self.jogador.center_x + inimigo.center_x) / 2
         y = (self.jogador.center_y + inimigo.center_y) / 2
@@ -489,31 +755,26 @@ class TelaJogo(arcade.View):
         if key == arcade.key.ESCAPE:
             tela_inicial = TelaInicial()
             self.window.show_view(tela_inicial)
-        if key == arcade.key.A or key == arcade.key.LEFT:
-            self.jogador.change_x = -self.movimento
-        elif key == arcade.key.D or key == arcade.key.RIGHT:
-            self.jogador.change_x = self.movimento
+        self.teclas_pressionadas.add(key)
+        if key == arcade.key.LSHIFT or key == arcade.key.RSHIFT:
+            self.jogador.iniciar_dash()
         if key == arcade.key.W or key == arcade.key.SPACE or key == arcade.key.UP:
             if self.engine_fisica.can_jump():
                 self.jogador.change_y = FORCA_PULO
-        if key == arcade.key.G:
-            self.jogo_finalizado = True
-            tela_final = TelaFinal(self.pontuacao, self.tempo, self.pontuacao_maxima)
-            self.window.show_view(tela_final)
 
     def on_key_release(self, key, modifiers):
-        if key == arcade.key.A or key == arcade.key.LEFT or key == arcade.key.D or key == arcade.key.RIGHT:
-            self.jogador.change_x = 0
+        self.teclas_pressionadas.discard(key)
         if key == arcade.key.W or key == arcade.key.SPACE or key == arcade.key.UP:
             self.jogador.change_y = 0
 
 class TelaFinal(arcade.View):
-    def __init__(self, pontos, tempo, pontuacao_maxima):
+    def __init__(self, pontos, tempo, pontuacao_maxima, venceu=True):
         super().__init__()
         self.fundo = arcade.load_texture("TelaFinal.png")
         self.pontos = pontos
         self.tempo = tempo
         self.pontuacao_maxima = pontuacao_maxima
+        self.venceu = venceu
 
         self.nome_jogador = ""
         self.salvo = False
@@ -531,7 +792,10 @@ class TelaFinal(arcade.View):
                 height=ALTURA
             )
         )
-        if self.pontos >= self.pontuacao_maxima:
+
+        if not self.venceu:
+            arcade.draw_text("FIM DE JOGO - VOCÊ FICOU SEM VIDA", LARGURA / 2, 470, arcade.color.RED, 22, anchor_x="center")
+        elif self.pontos >= self.pontuacao_maxima:
             arcade.draw_text("VITÓRIA PERFEITA!", LARGURA / 2, 470, arcade.color.GOLD, 22, anchor_x="center")
         else:
             arcade.draw_text("PARABÉNS! JOGO CONCLUÍDO", LARGURA / 2, 470, COLOR_TEXT, 22, anchor_x="center")
@@ -613,7 +877,7 @@ class TelaTutorial(arcade.View):
         arcade.draw_text(f"A Moeda Especial vale (+{VALOR_MOEDA_ESPECIAL} Pontos)", LARGURA/2, 390, COLOR_TEXT, 18, anchor_x="center")
         arcade.draw_text(f"As Moedas valem (+{VALOR_MOEDA} Ponto)", LARGURA/2, 360, COLOR_TEXT, 18, anchor_x="center")
         arcade.draw_text("Os Inimigos fazem você perder (-1 Ponto)", LARGURA/2, 330, COLOR_TEXT, 18, anchor_x="center")
-        arcade.draw_text("O Inimigo Especial te persegue e faz você perder (-1 Ponto)", LARGURA/2, 300, COLOR_TEXT, 18, anchor_x="center")
+        arcade.draw_text("O Inimigo Voador te persegue e faz você perder (-1 Ponto)", LARGURA/2, 300, COLOR_TEXT, 18, anchor_x="center")
 
         arcade.draw_text("OBJETIVOS", LARGURA/2, 220, COLOR_TEXT, 30, anchor_x="center")
         arcade.draw_text("Colete todas as moedas para concluir o jogo!", LARGURA/2, 190, COLOR_TEXT, 18, anchor_x="center")
